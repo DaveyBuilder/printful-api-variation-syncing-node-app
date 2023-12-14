@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Printful Automation App</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            padding: 2rem;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+        }
+        h1 {
+            margin-bottom: 2rem;
+        }
+        .btn {
+            margin: 0.5rem auto;
+        }
+        li {
+            text-align: left;
+            list-style: none;
+            counter-reset: my-awesome-counter;
+            padding-left: 0;
+        }
+        .action-step {
+            animation: pulse 1s 1;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0,123,255,.5); }
+            70% { box-shadow: 0 0 0 10px rgba(0,123,255,0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,123,255,0); }
+        }
+        p.success-message {
+            color: darkgreen;
+            font-size: 1.0rem;
+        }
+        p.failure-message {
+            color: darkred;
+            font-size: 1.0rem;
+        }
+        p.warning-message {
+            color: orange;
+            font-size: 1.0rem;
+        }
+        ul.failure-message {
+            color: darkred;
+            font-size: 1.0rem;
+        }
+        ul.warning-message {
+            color: orange;
+            font-size: 1.0rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 9999; cursor: pointer;">
+        <div style="position: absolute; top: 50%; left: 50%; font-size: 50px; color: white; transform: translate(-50%,-50%);">
+            <i class="fa fa-spinner fa-spin"></i>
+        </div>
+    </div>
+    <div class="container">
+        <h1>Printful Automation App</h1>
+        <li class="action-step">
+            <p><b>Create a new template file from listings with zero synced variations.</b></p>
+            <form action="/createTemplate" method="get">
+                <button type="submit" class="btn btn-primary mb-2">Create Template</button>
+            </form>
+            {{#if templateCreated}}
+                <p class="success-message"><b>Listing template successfully created at : {{fileName}}</b></p>
+            {{/if}}
+            {{#if templateFailed}}
+                <p class="failure-message">Template creation failed</p>
+            {{/if}}
+        </li>
+        <hr>
+        <li class="action-step">
+            <p><b>Sync Printful</b></p>
+            <p>Choose a .xlsx file for updating Printful listings</p>
+            <form action="/syncPrintful" method="put" enctype="multipart/form-data" id="printfulForm">
+                <input type="file" name="xlsxfile" accept=".xlsx" required />
+                <button type="submit" class="btn btn-primary mb-2">Sync Printful Listings</button>
+            </form>
+            <p id="success-msg" style="display: none" class="success-message"><b>Printful syncing process complete</b></p>
+            <p id="how-to-rerun-msg" style="display: none" class="failure-message"><b>There were warnings or errors. You can re-attempt these rows using the spreadsheet created in the 'backups' folder.</b></p>
+            <p id="csv-errors-msg" style="display: none" class="failure-message"><b>There were issues with the spreadsheet, please fix and try again:</b></p>
+            <ul id="csv-errors" class="failure-message"></ul>
+            <p id="printful-errors-msg" style="display: none" class="failure-message"><b>There were errors when syncing variations on Printful:</b></p>
+            <ul id="printful-errors" class="failure-message"></ul>
+            <p id="printful-warnings-msg" style="display: none" class="warning-message"><b>There are some warnings:</b></p>
+            <ul id="printful-warnings" class="warning-message"></ul>
+        </li>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('form').submit(function() {
+                $('#overlay').show();
+            });
+        });
+    </script>
+    <script>
+        document.getElementById('printfulForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            $('#overlay').show();
+            var formData = new FormData(this);
+
+            try {
+                const response = await fetch('/syncPrintful', {
+                    method: 'PUT',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                // Check if csvErrorArray is in the response and not empty
+                if (data.csvErrorArray && data.csvErrorArray.length > 0) {
+                    document.getElementById('csv-errors-msg').style.display = 'block';
+                    document.getElementById('csv-errors').innerHTML = data.csvErrorArray.join('<br>');
+                }
+
+                // Check if the other arrays are in the response and not empty
+                if (data.printfulWarningsArray && data.printfulWarningsArray.length > 0) {
+                    if (data.allRowsSkipped === false) {
+                        document.getElementById('how-to-rerun-msg').style.display = 'block';
+                    }
+                    document.getElementById('printful-warnings-msg').style.display = 'block';
+                    document.getElementById('printful-warnings').innerHTML = data.printfulWarningsArray.join('<br>');
+                }
+                if (data.printfulErrorsArray && data.printfulErrorsArray.length > 0) {
+                    if (data.allRowsSkipped === false) {
+                        document.getElementById('how-to-rerun-msg').style.display = 'block';
+                    }
+                    document.getElementById('printful-errors-msg').style.display = 'block';
+                    document.getElementById('printful-errors').innerHTML = data.printfulErrorsArray.join('<br>');
+                }
+
+                // Check if both printfulWarningsArray and printfulErrorsArray are not empty
+                if (data.printfulErrorsArray && data.printfulErrorsArray.length === 0) {
+                    document.getElementById('success-msg').style.display = 'block';
+                }
+
+                $('#overlay').hide();
+
+            } catch (error) {
+                console.error('Error:', error);
+                $('#overlay').hide();
+            }
+        });
+    </script>
+</body>
+</html>

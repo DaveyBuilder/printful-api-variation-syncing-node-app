@@ -1,0 +1,33 @@
+{
+  "name": "printful-api-listing-syncing-node-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.3.1",
+    "exceljs": "^4.3.0",
+    "express": "4.x",
+    "form-data": "^4.0.0",
+    "hbs": "^4.1.2",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.6.1"
+  },
+  "engines": {
+    "node": ">=18.15.0"
+  },
+  "pkg": {
+    "scripts": "*.js",
+    "assets": [
+      "views/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ]
+  },
+  "license": "MIT"
+}
